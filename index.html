@@ -8,13 +8,13 @@
   <style>
     /* ====== Styles (mobile-first) ====== */
     :root{
-      --bg:#f7f8fb;
+      --bg:#faf8ff; /* soft pastel lavender background */
       --card:#ffffff;
-      --primary:#0b84ff;
-      --muted:#6b7280;
-      --success:#10b981;
-      --danger:#ef4444;
-      --shadow:0 6px 18px rgba(11,12,16,0.06);
+      --primary:#a78bfa; /* pastel lavender */
+      --muted:#8b8fa3; /* soft gray-lavender for secondary text */
+      --success:#86efac; /* pastel green */
+      --danger:#fca5a5;  /* pastel red */
+      --shadow:0 6px 18px rgba(167,139,250,0.12);
       font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     }
     *{box-sizing:border-box}
@@ -28,7 +28,7 @@
     .btn{border:0;padding:10px 12px;border-radius:10px;font-weight:600;min-height:44px;display:inline-flex;align-items:center;justify-content:center;touch-action:manipulation}
     .btn-large{padding:14px 18px;font-size:16px}
     .btn.primary{background:var(--primary);color:white}
-    .btn.ghost{background:transparent;color:var(--primary);border:1px solid rgba(11,132,255,0.12)}
+    .btn.ghost{background:transparent;color:var(--primary);border:1px solid rgba(167,139,250,0.24)}
     .btn.icon{background:transparent;border-radius:8px;padding:6px 10px;font-size:18px}
     .app-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
     .title{font-size:20px;font-weight:700}
@@ -61,7 +61,7 @@
 
     /* Small helpers for touch */
     button, input { -webkit-tap-highlight-color: transparent; }
-    input::placeholder { color: #bfc7d6; opacity:1 }
+    input::placeholder { color: #b8b3d9; opacity:1 }
   </style>
 </head>
 <body>
