@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>[List Me] — Lista de compras (single-file)</title>
+  <meta name="description" content="Prototipo mobile-first de lista de compras. Agregar, marcar, editar y eliminar. Persistencia en localStorage.">
+  <style>
+    /* ====== Styles (mobile-first) ====== */
+    :root{
+      --bg:#f7f8fb;
+      --card:#ffffff;
+      --primary:#0b84ff;
+      --muted:#6b7280;
+      --success:#10b981;
+      --danger:#ef4444;
+      --shadow:0 6px 18px rgba(11,12,16,0.06);
+      font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    }
+    *{box-sizing:border-box}
+    html,body,#app{height:100%}
+    body{margin:0;background:var(--bg);-webkit-font-smoothing:antialiased;color:#111}
+    .screen{display:none;padding:18px;min-height:100vh}
+    .screen.active{display:block}
+    .card{background:var(--card);border-radius:14px;padding:18px;box-shadow:var(--shadow)}
+    .welcome-card{text-align:center}
+    .lead{color:var(--muted);margin:8px 0 18px}
+    .btn{border:0;padding:10px 12px;border-radius:10px;font-weight:600;min-height:44px;display:inline-flex;align-items:center;justify-content:center;touch-action:manipulation}
+    .btn-large{padding:14px 18px;font-size:16px}
+    .btn.primary{background:var(--primary);color:white}
+    .btn.ghost{background:transparent;color:var(--primary);border:1px solid rgba(11,132,255,0.12)}
+    .btn.icon{background:transparent;border-radius:8px;padding:6px 10px;font-size:18px}
+    .app-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+    .title{font-size:20px;font-weight:700}
+    .header-actions{display:flex;gap:8px}
+    .content{padding-bottom:100px}
+    .add-form{display:flex;gap:8px;margin-bottom:12px}
+    .add-form input{flex:1;padding:12px;border-radius:10px;border:1px solid #e6e9ef;font-size:16px;outline:none}
+    .list{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:8px}
+    .list-item{background:var(--card);padding:12px;border-radius:12px;display:flex;align-items:center;justify-content:space-between;box-shadow:var(--shadow);gap:12px}
+    .item-left{display:flex;align-items:center;gap:12px;flex:1;min-width:0}
+    .checkbox{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;border:1px solid #eee;font-size:18px;flex:0 0 44px}
+    .item-name{font-size:16px;color:#111;word-break:break-word}
+    .item-name.bought{color:var(--muted);text-decoration:line-through}
+    .item-actions{display:flex;gap:8px;flex-shrink:0}
+    .small{font-size:14px;padding:8px 10px;border-radius:8px}
+    .empty{color:var(--muted);text-align:center;margin-top:40px}
+    .app-footer{position:fixed;left:0;right:0;bottom:0;background:linear-gradient(0deg, rgba(255,255,255,0.98), rgba(255,255,255,0.95));display:flex;justify-content:space-between;align-items:center;padding:12px 16px;box-shadow:0 -6px 18px rgba(11,12,16,0.06);gap:12px}
+    .footer-left{font-weight:600}
+    .footer-right{display:flex;gap:8px}
+    .modal{position:fixed;inset:0;display:none;align-items:flex-end;padding:12px;z-index:40}
+    .modal[aria-hidden="false"]{display:flex}
+    .modal-sheet{width:100%;background:var(--card);border-radius:14px;padding:12px;box-shadow:var(--shadow)}
+    .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
+    .bottom-nav{margin-top:12px;display:flex;justify-content:center;gap:8px}
+    @media(min-width:720px){
+      .screen{padding:28px}
+      .card{max-width:680px;margin:0 auto}
+      .modal-sheet{max-width:520px;margin:0 auto;border-radius:16px}
+    }
+
+    /* Small helpers for touch */
+    button, input { -webkit-tap-highlight-color: transparent; }
+    input::placeholder { color: #bfc7d6; opacity:1 }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <!-- Bienvenida -->
+    <section id="welcome" class="screen active" aria-label="Bienvenida">
+      <div class="card welcome-card">
+        <h1 style="margin:0 0 6px">[List Me]</h1>
+        <p class="lead">Tu lista de compras rápida y táctil. Agrega, marca, edita y elimina items. Todo queda guardado en tu dispositivo.</p>
+        <button id="startBtn" class="btn primary btn-large" aria-label="Comenzar">Comenzar</button>
+        <nav class="bottom-nav">
+          <button id="openAbout" class="btn ghost" aria-label="Sobre">Sobre</button>
+        </nav>
+      </div>
+    </section>
+
+    <!-- App principal -->
+    <section id="main" class="screen" aria-label="Lista principal">
+      <header class="app-header">
+        <div class="title">Mi lista</div>
+        <div class="header-actions">
+          <button id="openNewItem" class="btn icon" aria-label="Agregar">＋</button>
+          <button id="openWelcome" class="btn icon" aria-label="Inicio">☰</button>
+        </div>
+      </header>
+
+      <main class="content">
+        <form id="addForm" class="add-form" aria-label="Agregar item">
+          <input id="itemInput" type="text" placeholder="Agregar producto, ej. Leche" autocomplete="off" inputmode="text" />
+          <button type="submit" class="btn primary" aria-label="Agregar item">Agregar</button>
+        </form>
+
+        <ul id="list" class="list" role="list"></ul>
+
+        <div id="empty" class="empty">Aún no hay productos. Agrega tu primer item ✨</div>
+      </main>
+
+      <footer class="app-footer" role="contentinfo">
+        <div class="footer-left">Items: <span id="count">0</span></div>
+        <div class="footer-right">
+          <button id="clearBought" class="btn ghost small" aria-label="Limpiar comprados">Limpiar comprados</button>
+          <button id="clearAll" class="btn ghost small" aria-label="Borrar todo">Borrar todo</button>
+        </div>
+      </footer>
+    </section>
+
+    <!-- About / Ayuda -->
+    <section id="about" class="screen" aria-label="Acerca de">
+      <div class="card">
+        <h2 style="margin-top:0">Sobre [List Me]</h2>
+        <p>Prototipo simple de lista de compras. Funciona offline usando <strong>localStorage</strong>. Interfaz optimizada para dispositivos táctiles.</p>
+        <ul>
+          <li>Tocar checkbox: marcar como comprado</li>
+          <li>Botón editar: modificar nombre (o doble-tap sobre el nombre)</li>
+          <li>Botón eliminar: borra el item</li>
+        </ul>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+          <button id="backToMain" class="btn primary">Volver</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Modal Edit -->
+    <div id="modal" class="modal" aria-hidden="true">
+      <div class="modal-sheet card" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <h3 id="modalTitle" style="margin:0 0 8px">Editar item</h3>
+        <form id="editForm">
+          <input id="editInput" type="text" placeholder="Nuevo nombre" autocomplete="off" />
+          <div class="modal-actions">
+            <button type="button" id="cancelEdit" class="btn ghost">Cancelar</button>
+            <button type="submit" class="btn primary">Guardar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ====== script.js (single-file) ====== */
+    (function(){
+      // SELECTORS
+      const S = {
+        welcome: document.getElementById('welcome'),
+        main: document.getElementById('main'),
+        about: document.getElementById('about'),
+        startBtn: document.getElementById('startBtn'),
+        openAbout: document.getElementById('openAbout'),
+        backToMain: document.getElementById('backToMain'),
+        openWelcome: document.getElementById('openWelcome'),
+        addForm: document.getElementById('addForm'),
+        itemInput: document.getElementById('itemInput'),
+        listEl: document.getElementById('list'),
+        empty: document.getElementById('empty'),
+        count: document.getElementById('count'),
+        clearBought: document.getElementById('clearBought'),
+        clearAll: document.getElementById('clearAll'),
+        modal: document.getElementById('modal'),
+        editForm: document.getElementById('editForm'),
+        editInput: document.getElementById('editInput'),
+        cancelEdit: document.getElementById('cancelEdit'),
+        openNewItem: document.getElementById('openNewItem'),
+      };
+
+      const STORAGE_KEY = 'listme_items_v1';
+      let items = [];
+      let editingId = null;
+
+      // Navigation helper
+      function show(screen){
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        screen.classList.add('active');
+      }
+
+      S.startBtn.addEventListener('click', () => show(S.main));
+      S.openAbout.addEventListener('click', () => show(S.about));
+      S.backToMain.addEventListener('click', () => show(S.main));
+      S.openWelcome.addEventListener('click', () => show(S.welcome));
+      S.openNewItem.addEventListener('click', () => S.itemInput.focus());
+
+      // localStorage
+      function saveItems(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(items)); }
+      function loadItems(){
+        try{
+          const raw = localStorage.getItem(STORAGE_KEY);
+          items = raw ? JSON.parse(raw) : [];
+        }catch(e){ items = []; }
+      }
+
+      // utilities
+      function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+
+      // render
+      function render(){
+        S.listEl.innerHTML = '';
+        if(items.length === 0){ S.empty.style.display = 'block'; } else { S.empty.style.display = 'none'; }
+
+        items.forEach(it => {
+          const li = document.createElement('li');
+          li.className = 'list-item';
+          li.setAttribute('data-id', it.id);
+
+          const left = document.createElement('div'); left.className = 'item-left';
+
+          const checkbox = document.createElement('button');
+          checkbox.className = 'checkbox';
+          checkbox.setAttribute('aria-label','Marcar comprado');
+          checkbox.innerText = it.bought ? '✓' : '○';
+          checkbox.addEventListener('click', () => toggleBought(it.id));
+          // touch hint
+          checkbox.addEventListener('touchstart', () => {} , {passive:true});
+
+          const name = document.createElement('div');
+          name.className = 'item-name' + (it.bought ? ' bought' : '');
+          name.innerText = it.name;
+          // doble-tap/double-click to edit
+          name.addEventListener('dblclick', () => openEdit(it.id));
+          // mobile: long-press fallback for edit (simple)
+          let pressTimer = null;
+          name.addEventListener('touchstart', (e) => { pressTimer = setTimeout(()=> openEdit(it.id), 600); }, {passive:true});
+          name.addEventListener('touchend', ()=> clearTimeout(pressTimer));
+
+          left.appendChild(checkbox);
+          left.appendChild(name);
+
+          const actions = document.createElement('div'); actions.className = 'item-actions';
+          const editBtn = document.createElement('button'); editBtn.className = 'small btn'; editBtn.innerText = 'Editar';
+          editBtn.addEventListener('click', () => openEdit(it.id));
+          const delBtn = document.createElement('button'); delBtn.className = 'small btn ghost'; delBtn.innerText = 'Eliminar';
+          delBtn.addEventListener('click', () => removeItem(it.id));
+
+          actions.appendChild(editBtn);
+          actions.appendChild(delBtn);
+
+          li.appendChild(left);
+          li.appendChild(actions);
+          S.listEl.appendChild(li);
+        });
+
+        S.count.innerText = items.length;
+      }
+
+      // CRUD
+      function addItem(name){
+        name = (name || '').trim();
+        if(!name) return;
+        const it = { id: uid(), name, bought:false, created: Date.now() };
+        items.unshift(it);
+        saveItems(); render();
+      }
+
+      function removeItem(id){
+        if(!confirm('¿Eliminar este item?')) return;
+        items = items.filter(i => i.id !== id);
+        saveItems(); render();
+      }
+
+      function toggleBought(id){
+        items = items.map(i => i.id === id ? Object.assign({}, i, { bought: !i.bought }) : i );
+        saveItems(); render();
+      }
+
+      // clear actions
+      S.clearBought.addEventListener('click', () => {
+        if(!confirm('Eliminar todos los items marcados como comprados?')) return;
+        items = items.filter(i => !i.bought);
+        saveItems(); render();
+      });
+      S.clearAll.addEventListener('click', () => {
+        if(!confirm('Borrar toda la lista?')) return;
+        items = []; saveItems(); render();
+      });
+
+      // form handlers
+      S.addForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        addItem(S.itemInput.value);
+        S.itemInput.value = '';
+        S.itemInput.focus();
+      });
+
+      S.itemInput.addEventListener('keypress', (e) => {
+        if(e.key === 'Enter'){
+          e.preventDefault();
+          addItem(S.itemInput.value);
+          S.itemInput.value = '';
+        }
+      });
+
+      // edit modal
+      function openEdit(id){
+        const it = items.find(i => i.id === id);
+        if(!it) return;
+        editingId = id;
+        S.editInput.value = it.name;
+        S.modal.setAttribute('aria-hidden','false');
+        // small timeout to ensure visible on mobile and keyboard opens
+        setTimeout(()=> S.editInput.focus(), 120);
+      }
+      function closeEdit(){
+        editingId = null;
+        S.modal.setAttribute('aria-hidden','true');
+      }
+
+      S.cancelEdit.addEventListener('click', (e) => { e.preventDefault(); closeEdit(); });
+      S.editForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const v = S.editInput.value.trim();
+        if(!v) { alert('El nombre no puede quedar vacío'); return; }
+        items = items.map(i => i.id === editingId ? Object.assign({}, i, { name: v }) : i);
+        saveItems(); render(); closeEdit();
+      });
+
+      // close modal when tapping outside
+      S.modal.addEventListener('click', (ev) => {
+        if(ev.target === S.modal) closeEdit();
+      });
+
+      // init
+      function init(){
+        loadItems(); render();
+        const seen = localStorage.getItem('listme_seen_welcome_v1');
+        if(!seen){ show(S.welcome); localStorage.setItem('listme_seen_welcome_v1','1'); }
+        else show(S.main);
+
+        // accessibility: trap some focus behavior if needed (minimal)
+        // prevent accidental zoom on iOS (meta viewport already set)
+      }
+
+      init();
+      // Expose for debugging in console (optional)
+      window.__listme = { items, save: saveItems, load: loadItems };
+    })();
+  </script>
+</body>
+</html>
